@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-
+# Esto se hace para simular un archivo con datos muy grandes
 # Crear un directorio para los archivos Parquet
 if not os.path.exists("clientes"):
     os.makedirs("clientes")
