@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 import numpy as np
-
+# Esto se hace para simular un archivo con datos muy grandes
 # Crear un directorio para los archivos CSV
 if not os.path.exists("ventas_2023"):
     os.makedirs("ventas_2023")
