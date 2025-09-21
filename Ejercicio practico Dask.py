@@ -48,7 +48,12 @@ top_categorias = (
 )
 #Encuentra las 3 categorías más vendidas por región, ordenadas por la suma de ventas (monto_sum).
 
+# Imprime un encabezado y las primeras 10 filas del resumen general,
+# que contiene las métricas por región y categoría
 print("Resumen general:")
 print(resumen.head(10))
+
+# Imprime un encabezado y el resultado de top_categorias,
+# es decir, las 3 categorías con mayor monto de ventas por cada región
 print("\nTop categorías por región:")
 print(top_categorias)
