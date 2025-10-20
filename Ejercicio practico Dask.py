@@ -1,5 +1,6 @@
 # El código está diseñado para procesar grandes volúmenes de datos de clientes y ventas usando Dask,
 # que permite trabajar con datasets que no caben en memoria (similar a Pandas pero distribuido).
+# Objetivo: leer ventas y clientes (archivos grandes), limpiar, unir y resumir por region/categoria.
 
 import dask.dataframe as dd    # Dask DataFrame: API parecida a pandas pero distribuida/paralela.
 import pandas as pd           # Pandas: usado dentro de funciones que procesan particiones (p. ej. map_partitions).
@@ -19,12 +20,25 @@ df_clientes = dd.read_parquet("clientes/*.parquet")  # Lee todos los parquet den
 # blocksize="128MB" significa que cada partición (cada "pedazo" interno) intentará ser de ~128MB en disco.
 # Esto ayuda a paralelizar y a trabajar con archivos más grandes que la RAM.
 df_ventas = dd.read_csv("ventas_2023/*.csv", blocksize="128MB")
+# En este punto NO se ha leído realmente todo el contenido en memoria.
+# Dask conoce las columnas y algunos metadatos, pero los datos se leen de disco al evaluar.
 
-# --- 2. Limpieza de datos ---
+# ------------------------------------------------
+#  Limpieza de datos: función que opera por partición
+# ------------------------------------------------
+# En Dask, cada partición se comporta como un DataFrame de pandas.
+# map_partitions aplica una función a cada partición separadamente.
 # Definimos una función que será aplicada a cada partición (cada partición es un DataFrame tipo pandas).
 def limpiar_ventas(pdf):
+    """
+    Esta función recibe un pandas.DataFrame (una partición)
+    y devuelve otro pandas.DataFrame ya limpio.
+    Es ejecutada por cada partición en paralelo.
+    """
     # Convierte la columna "fecha" a datetime; errors="coerce" convierte valores inválidos en NaT.
     # Esto evita errores posteriores al trabajar con fechas y nos permite filtrar/ordenar por fecha.
+    # Convertir la columna 'fecha' a datetime.
+    # errors='coerce' convierte valores inválidos en NaT (valor de fecha faltante).
     pdf["fecha"] = pd.to_datetime(pdf["fecha"], errors="coerce")
 
     # Rellena valores nulos en "monto" con 0. Esto evita errores al sumar/medianar cuando hay nulos.
@@ -55,6 +69,13 @@ df_full = df_ventas.merge(df_clientes, on="cliente_id", how="left")
 # Aquí agrupamos por región y categoría para calcular métricas agregadas por combinación (region, categoria).
 # Usamos .apply con una función que devuelve una Serie por grupo: esto permite devolver múltiples métricas a la vez.
 # IMPORTANTE: groupby.apply puede ser costoso en Dask (porque puede requerir reorganizar particiones).
+# Queremos calcular varias métricas por (region, categoria):
+# - suma de montos
+# - promedio de montos
+# - conteo de ventas
+# - número de clientes únicos
+# Forma 1 (intuitiva pero menos eficiente en Dask): groupby + apply que devuelve una Series.
+# Este enfoque funciona porque puede mover muchos datos entre particiones.
 resumen = df_full.groupby(["region", "categoria"]).apply(
     lambda x: pd.Series({
         "monto_sum": x["monto"].sum(),        # Suma total de 'monto' dentro del grupo.
